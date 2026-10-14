@@ -1,0 +1,35 @@
+# ---- Keil MDK-ARM build outputs ----
+MDK-ARM/Project/
+MDK-ARM/Objects/
+MDK-ARM/Listings/
+MDK-ARM/DebugConfig/
+*.o
+*.d
+*.crf
+*.dep
+*.lnp
+*.htm
+*.map
+*.lst
+*.i
+*.sct
+*.iex
+*.axf
+
+# ---- IDE / editor personal settings ----
+MDK-ARM/*.uvguix.*
+.vscode/
+.trae/
+.idea/
+
+# ---- temp / scratch ----
+_*.txt
+_*.tmp
+*.bak
+*.orig
+*.rej
+*~
+
+# ---- OS ----
+Thumbs.db
+desktop.ini
