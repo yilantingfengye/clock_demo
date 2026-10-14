@@ -168,7 +168,7 @@ void OLED_ClearPoint(u8 x,u8 y)
 void OLED_DrawLine(u8 x1,u8 y1,u8 x2,u8 y2)
 {
 	u8 i=0,k=0,k1=0,k2=0;
-	if((x1<0)||(x2>128)||(y1<0)||(y2>64)||(x1>x2)||(y1>y2))return;
+	if((x2>128)||(y2>64)||(x1>x2)||(y1>y2))return;
 	if(x1==x2)    //»­ÊúÏß
 	{
 			for(i=0;i<(y2-y1);i++)
