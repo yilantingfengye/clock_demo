@@ -70,5 +70,9 @@ uint8_t  KEY_IsPressed(KeyId_t id);         /* 查询某键当前是否处于按下态       
  *         把稳定值填入 key.c 的 s_key_map[] 的 center 字段
  */
 void     KEY_DebugPrint(uint32_t now_ms);
+/* ---- 灭屏唤醒支持(app_lowpower 模块使用) ---- */
+uint8_t  KEY_AnyPressed(void);              /* 查询是否有任意键处于稳定按下态     */
+void     KEY_FlushAll(void);                /* 清空事件队列与单击待确认状态       */
+
 
 #endif /* __KEY_H */

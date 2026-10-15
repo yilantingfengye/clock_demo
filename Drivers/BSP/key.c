@@ -343,3 +343,22 @@ void KEY_DebugPrint(uint32_t now_ms)
     s_min = 0xFFFF; s_max = 0;
 }
 
+
+/* ==========================================================================
+ * 6. 灭屏唤醒支持:供 app_lowpower 模块使用
+ * ========================================================================== */
+/* 查询当前是否有任意按键处于稳定按下态(消抖确认后),用于灭屏唤醒检测 */
+uint8_t KEY_AnyPressed(void)
+{
+    return (s_key.stable_id != KEY_NONE) ? 1u : 0u;
+}
+
+/* 清空事件队列与"单击待确认"状态;不清 stable_id(仍按住时保持状态机一致) */
+void KEY_FlushAll(void)
+{
+    s_q_head        = 0;
+    s_q_tail        = 0;
+    s_q_size        = 0;
+    s_pending_click = 0;
+    s_pending_id    = KEY_NONE;
+}

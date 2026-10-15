@@ -11,6 +11,7 @@
 #include "main.h"
 #include <stdio.h>
 #include <string.h>
+#include "app_lowpower.h"
 
 /* Private variables ---------------------------------------------------------*/
 /* Private function prototypes -----------------------------------------------*/
@@ -158,6 +159,8 @@ static void adjust_field(struct TIMEData *t, uint8_t *cfg, SetField_t f, int32_t
 /* 背景重绘标志(全局/上次是否在设置模式) */
 static uint8_t s_bg_drawn = 0;
 static uint8_t s_last_help_set = 0xFF;   /* 上次提示状态:0=正常,1=设置 */
+static uint8_t s_lp_set = 0;   /* 1=处于"灭屏时长"设置页(独立入口,长按 K1 进入) */
+static uint8_t s_lp_idx = 0;   /* 设置页正在编辑的档位(0..3) */
 
 /* 显示单个字段(hide=1 时用空格覆盖,实现闪烁) */
 static void display_field(struct TIMEData *t, const uint8_t *cfg, SetField_t f, uint8_t hide)
@@ -292,6 +295,16 @@ static void display_time(struct TIMEData *t, const uint8_t *cfg, SetField_t fiel
     OLED_Refresh();
 }
 
+/* 绘制"灭屏时长"设置页(进入时已 OLED_Clear,此处只负责画满各行) */
+static void display_lp_set(void)
+{
+    char buf[20];
+    OLED_ShowString(0, 0,  (u8 *)"Screen Time Set ", 16);
+    snprintf(buf, sizeof(buf), "OFF in:%-8s ", LP_TimeoutStr(s_lp_idx));
+    OLED_ShowString(0, 16, (u8 *)buf, 16);
+    OLED_ShowString(0, 32, (u8 *)"K1:Save  K4:Quit", 16);
+}
+
 /* ===================== 闹钟逻辑 ===================== */
 
 static uint16_t alarm_on_ms(uint8_t which)
@@ -320,6 +333,7 @@ static void Alarm_Start(uint8_t which, uint32_t now)
     s_al_beeps    = 0;
     s_al_start_ms = now;
     s_al_phase_ms = now - alarm_off_ms(which);   /* 回拨相位,使 Process 立刻进入"响"相位 */
+    LP_ForceWake(now);   /* 响铃时强制亮屏,确保能看到响铃提示 */
     s_al_ui_dirty = 1;
 }
 
@@ -500,6 +514,29 @@ static void handle_key_event(KeyMsg_t *msg)
         return;
     }
 
+    /* ---- 灭屏时长设置页(独立入口,不干扰调时钟/调闹钟) ---- */
+    if (s_lp_set)
+    {
+        if (msg->id == KEY_UP && (msg->evt == KEY_EVT_SHORT || msg->evt == KEY_EVT_REPEAT))
+            s_lp_idx = (uint8_t)((s_lp_idx + 1u) % (LP_IDX_MAX + 1u));
+        else if (msg->id == KEY_DOWN && (msg->evt == KEY_EVT_SHORT || msg->evt == KEY_EVT_REPEAT))
+            s_lp_idx = (s_lp_idx == 0u) ? LP_IDX_MAX : (uint8_t)(s_lp_idx - 1u);
+        else if (msg->id == KEY_MODE && msg->evt == KEY_EVT_SHORT)
+        {
+            LP_SetTimeoutIdx(s_lp_idx);   /* K1 短按:保存并退出 */
+            s_lp_set   = 0;
+            s_bg_drawn = 0;
+            OLED_Clear();                 /* 清掉设置页文字,时钟整屏重画无残留 */
+        }
+        else if (msg->id == KEY_ALARM && (msg->evt == KEY_EVT_SHORT || msg->evt == KEY_EVT_LONG))
+        {
+            s_lp_set   = 0;               /* K4:放弃修改退出 */
+            s_bg_drawn = 0;
+            OLED_Clear();                 /* 同上:清掉设置页文字 */
+        }
+        return;
+    }
+
     /* ---- 正常模式:K1 进入时间页, K4 进入闹钟页 ---- */
     if (s_set_field == SET_NONE)
     {
@@ -518,6 +555,13 @@ static void handle_key_event(KeyMsg_t *msg)
             memcpy(s_edit_cfg, s_cfg, AL_CFG_LEN);
             s_set_field = SET_AL1_EN;
             s_bg_drawn  = 0;
+        }
+        else if (msg->id == KEY_MODE && msg->evt == KEY_EVT_LONG)
+        {
+            s_lp_set   = 1;                  /* 长按 K1:进入灭屏时长设置页 */
+            s_lp_idx   = LP_GetTimeoutIdx();
+            s_bg_drawn = 0;
+            OLED_Clear();                    /* 清掉时钟画面,避免与设置页文字重叠 */
         }
         return;
     }
@@ -633,6 +677,7 @@ int main(void)
 
     OLED_Refresh();
     OLED_DisPlay_On();
+    LP_Init(HAL_GetTick());   /* 低功耗模块:默认亮屏,开始 30s 计时 */
 
     /* 上电立即绘制一帧:显示电池保持的时间 */
     s_bg_drawn = 0;
@@ -646,6 +691,12 @@ int main(void)
         uint8_t   need_refresh = 0;
 
         KEY_Scan(now);
+
+        /* 低功耗:30s 无操作灭屏;灭屏中检测到按键则唤醒(返回1=刚唤醒,需整屏重绘) */
+        if (LP_Process(now))
+        {
+            s_bg_drawn = 0;
+        }
 
         /* 每 500ms 读 DS1302;设置页也要走时(闹钟匹配依赖它) */
         if (now - s_last_refresh_ms >= 500)
@@ -679,6 +730,14 @@ int main(void)
         /* 闹钟处理:驱动状态机与蜂鸣器 */
         Alarm_Process(now);
 
+        /* 响铃/贪睡期间保持亮屏,便于看到操作提示 */
+        if (s_al_state != AL_IDLE)
+            LP_NoteActivity(now);
+
+        /* 设置页/灭屏设置页期间保持亮屏,避免操作到一半灭屏 */
+        if (s_lp_set || s_set_field != SET_NONE)
+            LP_NoteActivity(now);
+
         /* 响铃状态变化时:触发一次界面重绘 */
         if (s_al_ui_dirty)
         {
@@ -690,13 +749,21 @@ int main(void)
         /* 处理按键消息队列 */
         while (KEY_GetMsg(&msg))
         {
+            if (LP_KeyMsgFilter(&msg))  /* 唤醒屏幕的那次按键只负责亮屏,不触发功能 */
+                continue;
+            LP_NoteActivity(now);       /* 有效按键重置灭屏计时 */
             handle_key_event(&msg);
             need_refresh = 1;   /* 按键事件后需要重绘 */
         }
 
-        if (need_refresh)
+        if (need_refresh && LP_IsScreenOn())   /* 灭屏期间跳过 OLED 刷新以省电 */
         {
-            if (s_set_field == SET_NONE)
+            if (s_lp_set)
+            {
+                display_lp_set();
+                OLED_Refresh();
+            }
+            else if (s_set_field == SET_NONE)
                 display_time(&TimeData, s_cfg, SET_NONE, 0);
             else
                 display_time((s_set_field >= SET_AL1_EN) ? &TimeData : &s_edit, s_edit_cfg, s_set_field, s_blink_hide);

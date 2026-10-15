@@ -105,7 +105,7 @@ void OLED_DisPlay_Off(void)
 {
 	OLED_WR_Byte(0x8D,OLED_CMD);//电荷泵使能
 	OLED_WR_Byte(0x10,OLED_CMD);//关闭电荷泵
-	OLED_WR_Byte(0xAF,OLED_CMD);//关闭屏幕
+	OLED_WR_Byte(0xAE,OLED_CMD);//关闭屏幕
 }
 
 //更新显存到OLED	

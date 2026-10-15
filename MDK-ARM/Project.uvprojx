@@ -417,6 +417,16 @@
               <FilePath>..\Drivers\BSP\key.h</FilePath>
             </File>
             <File>
+              <FileName>app_lowpower.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Drivers\BSP\app_lowpower.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_lowpower.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Drivers\BSP\app_lowpower.h</FilePath>
+            </File>
+            <File>
               <FileName>beep.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Drivers\BSP\beep.c</FilePath>
@@ -1044,6 +1054,16 @@
               <FileName>key.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Drivers\BSP\key.h</FilePath>
+            </File>
+            <File>
+              <FileName>app_lowpower.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Drivers\BSP\app_lowpower.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_lowpower.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Drivers\BSP\app_lowpower.h</FilePath>
             </File>
             <File>
               <FileName>beep.c</FileName>
